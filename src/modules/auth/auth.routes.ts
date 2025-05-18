@@ -2,16 +2,16 @@ import { Router } from 'express';
 import { registerHandler, loginHandler, refreshTokenHandler, logoutHandler } from './auth.controller';
 import { validate } from '../../middlewares/validation.middleware';
 import { registerSchema, loginSchema, refreshTokenSchema } from './auth.schema';
-import { requireAuth } from '../../middlewares/auth.middleware';
+import { authenticate } from '../../middlewares/auth.middleware';
 
 const router = Router();
 
-// Public routes
+// Public routes - no authentication required
 router.post('/register', validate(registerSchema), registerHandler);
 router.post('/login', validate(loginSchema), loginHandler);
 router.post('/refresh-token', validate(refreshTokenSchema), refreshTokenHandler);
 
-// Protected routes
-router.post('/logout', requireAuth(), logoutHandler);
+// Protected routes - authentication required
+router.post('/logout', authenticate, logoutHandler);
 
 export default router; 

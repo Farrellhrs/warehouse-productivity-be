@@ -11,9 +11,10 @@ import { httpLogger, requestLogger, errorLogger } from './middlewares/logging.mi
 // Import routes
 import authRoutes from './modules/auth/auth.routes';
 import overviewRoutes from './modules/overview/overview.routes';
-// import userRoutes from './modules/user/user.routes';
+import userRoutes from './modules/user/user.routes';
 import dailyLogRoutes from './modules/dailyLog/dailyLog.routes';
 import activityLogRoutes from './modules/activityLog/activityLog.routes';
+import performanceMetricsRoutes from './modules/performanceMetrics/performanceMetrics.routes';
 // import targetRoutes from './modules/target/target.routes';
 // import reportRoutes from './modules/report/report.routes';
 // import settingRoutes from './modules/setting/setting.routes';
@@ -24,12 +25,21 @@ const app = express();
 const swaggerDocument = YAML.load(path.join(__dirname, '../swagger.yaml'));
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for Swagger UI
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
+}));
+
+// CORS configuration
 app.use(cors({
-  origin: '*',
+  origin: ['http://localhost:5050', 'http://127.0.0.1:5050'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 }));
 
 // Rate limiting
@@ -57,6 +67,16 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
     docExpansion: 'none',
     filter: true,
     showCommonExtensions: true,
+    tryItOutEnabled: true,
+    syntaxHighlight: {
+      activate: true,
+      theme: "monokai"
+    },
+    requestInterceptor: (req: any) => {
+      // Ensure proper headers for Swagger UI requests
+      req.headers['Accept'] = 'application/json';
+      return req;
+    }
   }
 }));
 
@@ -75,9 +95,10 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/overview', overviewRoutes);
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/daily-logs', dailyLogRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
+app.use('/api/performance', performanceMetricsRoutes);
 // app.use('/api/targets', targetRoutes);
 // app.use('/api/reports', reportRoutes);
 // app.use('/api/settings', settingRoutes);

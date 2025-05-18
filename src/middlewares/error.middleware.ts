@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import logger from '../utils/logger';
 
 export class AppError extends Error {
   constructor(
@@ -19,7 +20,13 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  console.error(err);
+  // Log the error
+  logger.error('Error occurred:', {
+    error: err,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {
@@ -33,10 +40,11 @@ export const errorHandler = (
   // Handle Prisma errors
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === 'P2002') {
+      const field = Array.isArray(err.meta?.target) ? err.meta.target[0] : 'field';
       return res.status(409).json({
         success: false,
-        message: 'Unique constraint violation',
-        errors: [`${err.meta?.target} already exists`],
+        message: `${field} already exists`,
+        errors: [`The ${field} you provided is already in use`],
       });
     }
     if (err.code === 'P2025') {

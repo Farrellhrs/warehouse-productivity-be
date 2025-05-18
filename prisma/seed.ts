@@ -1,74 +1,52 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create roles
-  const roles = await Promise.all([
-    prisma.role.create({
-      data: {
-        name: 'editor',
-        description: 'Kepala Bagian Gudang - Full access to manage warehouse operations',
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: 'viewer',
-        description: 'View-only access for admin logistik and tenaga kerja operasional',
-      },
-    }),
-  ]);
+  // Delete all existing roles and users first
+  await prisma.user.deleteMany();
+  await prisma.role.deleteMany();
 
-  // Create users
-  const users = await Promise.all([
-    // Kepala Bagian Gudang (Editor)
-    prisma.user.create({
-      data: {
-        username: 'kepala_gudang',
-        email: 'kepala.gudang@example.com',
-        passwordHash: await bcrypt.hash('password123', 10),
-        fullName: 'Kepala Bagian Gudang',
-        roleId: roles[0].id
-      },
-      include: {
-        role: true
-      }
-    }),
-    // Admin Logistik (Viewer)
-    prisma.user.create({
-      data: {
-        username: 'admin_logistik',
-        email: 'admin.logistik@example.com',
-        passwordHash: await bcrypt.hash('password123', 10),
-        fullName: 'Admin Logistik',
-        roleId: roles[1].id
-      },
-      include: {
-        role: true
-      }
-    }),
-    // Tenaga Kerja Operasional (Viewer)
-    prisma.user.create({
-      data: {
-        username: 'tenaga_operasional',
-        email: 'tenaga.operasional@example.com',
-        passwordHash: await bcrypt.hash('password123', 10),
-        fullName: 'Tenaga Kerja Operasional',
-        roleId: roles[1].id
-      },
-      include: {
-        role: true
-      }
-    }),
-  ]);
+  // Create default roles with explicit IDs
+  const roles = [
+    {
+      id: 1,
+      name: 'viewer',
+      description: 'Can only view data, no modification permissions'
+    },
+    {
+      id: 2,
+      name: 'editor',
+      description: 'Can view, create, update, and delete data'
+    }
+  ];
 
-  console.log('Database has been seeded. 🌱');
-  console.log('Created roles:', roles);
-  console.log('Created users:', users.map(u => ({ 
-    username: u.username, 
-    role: u.role.name 
-  })));
+  for (const role of roles) {
+    await prisma.role.create({
+      data: role
+    });
+  }
+
+  // Create default editor user
+  const editorRole = await prisma.role.findUnique({
+    where: { name: 'editor' }
+  });
+
+  if (editorRole) {
+    const hashedPassword = await bcrypt.hash('editor123', 10);
+    await prisma.user.create({
+      data: {
+        username: 'editor',
+        email: 'editor@example.com',
+        passwordHash: hashedPassword,
+        fullName: 'Default Editor',
+        roleId: editorRole.id
+      }
+    });
+  }
+
+  console.log('Database has been seeded.');
 }
 
 main()

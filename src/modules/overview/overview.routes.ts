@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate } from '../../middlewares/validation.middleware';
-import { requireAuth } from '../../middlewares/auth.middleware';
+import { authenticate } from '../../middlewares/auth.middleware';
 import {
   getTodayOverviewHandler,
   getProductivityTrendsHandler,
@@ -16,7 +16,7 @@ import {
 const router = Router();
 
 // All routes require authentication
-router.use(requireAuth());
+router.use(authenticate);
 
 // Dashboard endpoints
 router.get('/today', validate(todayOverviewSchema), getTodayOverviewHandler);

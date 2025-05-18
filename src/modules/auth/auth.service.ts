@@ -1,11 +1,13 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../../config/prisma';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../utils/jwt';
+import { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  verifyRefreshToken,
+  blacklistToken 
+} from '../../utils/jwt';
 import { AppError } from '../../middlewares/error.middleware';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-
-const prismaClient = new PrismaClient();
 
 const registerSchema = z.object({
   username: z.string().min(3).max(50),
@@ -17,7 +19,7 @@ const registerSchema = z.object({
 
 export const register = async (data: z.infer<typeof registerSchema>) => {
   // Check if username already exists
-  const existingUser = await prismaClient.user.findFirst({
+  const existingUser = await prisma.user.findFirst({
     where: {
       OR: [
         { username: data.username },
@@ -27,14 +29,28 @@ export const register = async (data: z.infer<typeof registerSchema>) => {
   });
 
   if (existingUser) {
-    throw new AppError(409, 'Username or email already exists');
+    if (existingUser.username === data.username) {
+      throw new AppError(409, 'Username already registered');
+    }
+    if (existingUser.email === data.email) {
+      throw new AppError(409, 'Email already registered');
+    }
+  }
+
+  // Validate roleId (only allow viewer or editor)
+  const role = await prisma.role.findUnique({
+    where: { id: data.roleId }
+  });
+
+  if (!role || !['viewer', 'editor'].includes(role.name)) {
+    throw new AppError(400, 'Invalid role. Only viewer and editor roles are allowed.');
   }
 
   // Hash password
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
   // Create user with role
-  const user = await prismaClient.user.create({
+  const user = await prisma.user.create({
     data: {
       username: data.username,
       email: data.email,
@@ -91,6 +107,12 @@ export const login = async (usernameOrEmail: string, password: string) => {
     username: user.username
   });
 
+  // Store refresh token in database (optional, for token rotation)
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { refreshToken }
+  });
+
   return {
     user: {
       id: user.id,
@@ -121,25 +143,54 @@ export const refreshToken = async (token: string) => {
       throw new AppError(401, 'Invalid refresh token');
     }
 
+    // Blacklist the old refresh token
+    blacklistToken(token);
+
     // Generate new tokens
     const accessToken = generateAccessToken({
       id: user.id,
       username: user.username,
       role: user.role.name
     });
-    const newRefreshToken = generateRefreshToken({ id: user.id, username: user.username });
+    const newRefreshToken = generateRefreshToken({ 
+      id: user.id, 
+      username: user.username 
+    });
+
+    // Update refresh token in database
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: newRefreshToken }
+    });
 
     return {
       accessToken,
       refreshToken: newRefreshToken,
     };
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError(401, 'Invalid refresh token');
   }
 };
 
 export const logout = async (userId: number) => {
-  // In a real application, you might want to invalidate the refresh token
-  // or add it to a blacklist. For now, we'll just return success.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { refreshToken: true }
+  });
+
+  if (user?.refreshToken) {
+    // Blacklist the refresh token
+    blacklistToken(user.refreshToken);
+    
+    // Clear refresh token from database
+    await prisma.user.update({
+      where: { id: userId },
+      data: { refreshToken: null }
+    });
+  }
+
   return true;
 }; 

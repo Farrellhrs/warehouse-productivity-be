@@ -40,13 +40,14 @@ interface DailyLogWithUser {
   user: {
     id: number;
     username: string;
-    fullName: string;
+    fullName: string | null;
   };
 }
 
-interface DailyLog {
+interface DailyLogMetrics {
   binningCount: number | null;
   pickingCount: number | null;
+  isPresent: boolean;
 }
 
 const prismaClient = new PrismaClient();
@@ -68,10 +69,10 @@ export const getProductivityMetrics = async (
     throw new AppError(404, 'No data found for the specified date range');
   }
 
-  const totalBinning = dailyLogs.reduce((sum: number, log: DailyLog) => sum + log.binningCount, 0);
-  const totalPicking = dailyLogs.reduce((sum: number, log: DailyLog) => sum + log.pickingCount, 0);
+  const totalBinning = dailyLogs.reduce((sum: number, log: DailyLogMetrics) => sum + (log.binningCount || 0), 0);
+  const totalPicking = dailyLogs.reduce((sum: number, log: DailyLogMetrics) => sum + (log.pickingCount || 0), 0);
   const totalItems = totalBinning + totalPicking;
-  const presentDays = dailyLogs.filter((log: DailyLog) => log.isPresent).length;
+  const presentDays = dailyLogs.filter((log: DailyLogMetrics) => log.isPresent).length;
   const totalDays = dailyLogs.length;
 
   return {
@@ -107,10 +108,10 @@ export const getUserProductivity = async (
   }
 
   return users.map((user: UserWithDailyLogs) => {
-    const totalBinning = user.dailyLogs.reduce((sum: number, log: DailyLog) => sum + log.binningCount, 0);
-    const totalPicking = user.dailyLogs.reduce((sum: number, log: DailyLog) => sum + log.pickingCount, 0);
+    const totalBinning = user.dailyLogs.reduce((sum: number, log: DailyLogMetrics) => sum + (log.binningCount || 0), 0);
+    const totalPicking = user.dailyLogs.reduce((sum: number, log: DailyLogMetrics) => sum + (log.pickingCount || 0), 0);
     const totalItems = totalBinning + totalPicking;
-    const presentDays = user.dailyLogs.filter((log: DailyLog) => log.isPresent).length;
+    const presentDays = user.dailyLogs.filter((log: DailyLogMetrics) => log.isPresent).length;
     const totalDays = user.dailyLogs.length;
 
     return {
@@ -208,65 +209,30 @@ export const getTodayOverview = async (date?: string) => {
   };
 };
 
-export const getProductivityTrends = async () => {
-  const today = new Date();
-  const dayStart = startOfDay(today);
-  const weekStart = startOfWeek(today);
-  const monthStart = startOfMonth(today);
+export const getProductivityTrends = async (period: 'day' | 'week' | 'month') => {
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
 
-  // Get daily average
-  const dailyLogs = await prismaClient.dailyLog.findMany({
-    where: {
-      logDate: {
-        gte: dayStart,
-      },
-    },
-    select: {
-      binningCount: true,
-      pickingCount: true,
-    },
-  });
+  switch (period) {
+    case 'day':
+      startDate = startOfDay(now);
+      endDate = endOfDay(now);
+      break;
+    case 'week':
+      startDate = startOfWeek(now);
+      endDate = endOfWeek(now);
+      break;
+    case 'month':
+      startDate = startOfMonth(now);
+      endDate = endOfMonth(now);
+      break;
+    default:
+      startDate = startOfDay(now);
+      endDate = endOfDay(now);
+  }
 
-  const dailyTotal = dailyLogs.reduce((sum, log: DailyLog) => sum + (log.binningCount || 0) + (log.pickingCount || 0), 0);
-  const dailyAverage = dailyLogs.length > 0 ? Math.round(dailyTotal / dailyLogs.length) : 0;
-
-  // Get weekly average
-  const weeklyLogs = await prismaClient.dailyLog.findMany({
-    where: {
-      logDate: {
-        gte: weekStart,
-      },
-    },
-    select: {
-      binningCount: true,
-      pickingCount: true,
-    },
-  });
-
-  const weeklyTotal = weeklyLogs.reduce((sum, log: DailyLog) => sum + (log.binningCount || 0) + (log.pickingCount || 0), 0);
-  const weeklyAverage = weeklyLogs.length > 0 ? Math.round(weeklyTotal / weeklyLogs.length) : 0;
-
-  // Get monthly average
-  const monthlyLogs = await prismaClient.dailyLog.findMany({
-    where: {
-      logDate: {
-        gte: monthStart,
-      },
-    },
-    select: {
-      binningCount: true,
-      pickingCount: true,
-    },
-  });
-
-  const monthlyTotal = monthlyLogs.reduce((sum, log: DailyLog) => sum + (log.binningCount || 0) + (log.pickingCount || 0), 0);
-  const monthlyAverage = monthlyLogs.length > 0 ? Math.round(monthlyTotal / monthlyLogs.length) : 0;
-
-  return {
-    daily: dailyAverage,
-    weekly: weeklyAverage,
-    monthly: monthlyAverage,
-  };
+  return getProductivityMetrics(startDate, endDate);
 };
 
 export const getProductivityDetails = async (page: number, limit: number, startDate?: string, endDate?: string) => {

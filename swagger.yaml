@@ -268,7 +268,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Username already exists
+          description: Email already exists
           content:
             application/json:
               schema:
@@ -630,7 +630,7 @@ paths:
 
   /api/daily-logs:
     post:
-      summary: Create or update daily log
+      summary: Create or update a daily log
       tags: [Daily Logs]
       security:
         - bearerAuth: []
@@ -647,15 +647,21 @@ paths:
                 logDate:
                   type: string
                   format: date
+                  example: "2024-02-20"
                 isPresent:
                   type: boolean
+                  example: true
                 binningCount:
                   type: integer
+                  minimum: 0
+                  example: 150
                 pickingCount:
                   type: integer
+                  minimum: 0
+                  example: 200
       responses:
         '200':
-          description: Daily log created/updated
+          description: Daily log created/updated successfully
           content:
             application/json:
               schema:
@@ -665,8 +671,944 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/DailyLog'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Only operators can create daily logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Get all daily logs with pagination and filters
+      tags: [Daily Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering (YYYY-MM-DD)
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for filtering (YYYY-MM-DD)
+        - in: query
+          name: userId
+          schema:
+            type: integer
+          description: Filter by user ID
+      responses:
+        '200':
+          description: Daily logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logs:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/DailyLog'
+                          total:
+                            type: integer
+                            example: 100
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 10
+                          totalPages:
+                            type: integer
+                            example: 10
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/daily-logs/{id}:
+    get:
+      summary: Get a specific daily log by ID
+      tags: [Daily Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Daily log ID
+      responses:
+        '200':
+          description: Daily log retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DailyLog'
+        '400':
+          description: Invalid log ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Daily log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a daily log
+      tags: [Daily Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Daily log ID
+      responses:
+        '200':
+          description: Daily log deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '400':
+          description: Invalid log ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to delete this log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Daily log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/daily-logs/user/{userId}:
+    get:
+      summary: Get daily logs for a specific user
+      tags: [Daily Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: User ID
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering (YYYY-MM-DD)
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for filtering (YYYY-MM-DD)
+      responses:
+        '200':
+          description: User's daily logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logs:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/DailyLog'
+                          total:
+                            type: integer
+                            example: 50
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 10
+                          totalPages:
+                            type: integer
+                            example: 5
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/daily-logs/stats:
+    get:
+      summary: Get daily log statistics
+      tags: [Daily Logs]
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2024-01-15"
+          description: Start date for statistics (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2024-02-20"
+          description: End date for statistics (YYYY-MM-DD)
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+            example: 5
+          description: ID of the user to get statistics for
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          totalBinning:
+                            type: number
+                            example: 325
+                          totalPicking:
+                            type: number
+                            example: 400
+                          totalItems:
+                            type: number
+                            example: 725
+                          averageItemsPerDay:
+                            type: number
+                            example: 362.5
+                          presentDays:
+                            type: number
+                            example: 2
+                          totalDays:
+                            type: number
+                            example: 37
+                          attendanceRate:
+                            type: number
+                            example: 5.41
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/activity-logs:
+    get:
+      summary: Get activity logs (admin only)
+      tags: [Activity Logs]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for filtering
+        - in: query
+          name: dataType
+          schema:
+            type: string
+            enum: [binning, picking, attendance, daily_log]
+          description: Filter by data type
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [success, failure]
+          description: Filter by status
+        - in: query
+          name: userId
+          schema:
+            type: integer
+          description: Filter by user ID
+      responses:
+        '200':
+          description: List of activity logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Activity logs retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      logs:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 1
+                            userId:
+                              type: integer
+                              example: 1
+                            dataType:
+                              type: string
+                              example: daily_log
+                            status:
+                              type: string
+                              example: success
+                            activityTime:
+                              type: string
+                              format: date-time
+                              example: "2024-02-20T10:00:00Z"
+                            changeHistory:
+                              type: object
+                              example: {"details": "Updated daily log for 2024-02-20"}
+                            user:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                  example: 1
+                                username:
+                                  type: string
+                                  example: johndoe
+                                fullName:
+                                  type: string
+                                  example: John Doe
+                      total:
+                        type: integer
+                        example: 100
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 10
+                      totalPages:
+                        type: integer
+                        example: 10
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Only admins can access activity logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/performance-metrics:
+    get:
+      summary: Get performance metrics
+      tags: [Performance Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date for metrics
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date for metrics
+        - in: query
+          name: userId
+          schema:
+            type: integer
+          description: Filter by user ID
+        - in: query
+          name: groupBy
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+          description: Group metrics by time period
+      responses:
+        '200':
+          description: Performance metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    period:
+                      type: string
+                      format: date-time
+                      example: "2024-02-20T00:00:00Z"
+                    totalItems:
+                      type: integer
+                      example: 1500
+                    averageItemsPerOperator:
+                      type: number
+                      format: float
+                      example: 150.5
+                    binningPercentage:
+                      type: number
+                      format: float
+                      example: 60.5
+                    pickingPercentage:
+                      type: number
+                      format: float
+                      example: 39.5
+                    attendanceRate:
+                      type: number
+                      format: float
+                      example: 90.9
+                    activeOperators:
+                      type: integer
+                      example: 10
+        '400':
+          description: Bad request - startDate and endDate are required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/performance-metrics/operator/{userId}:
+    get:
+      summary: Get operator performance metrics
+      tags: [Performance Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+          description: User ID
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date for metrics
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date for metrics
+      responses:
+        '200':
+          description: Operator performance metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalItems:
+                    type: integer
+                    example: 1500
+                  averageItemsPerDay:
+                    type: number
+                    format: float
+                    example: 150.5
+                  binningPercentage:
+                    type: number
+                    format: float
+                    example: 60.5
+                  pickingPercentage:
+                    type: number
+                    format: float
+                    example: 39.5
+                  attendanceRate:
+                    type: number
+                    format: float
+                    example: 90.9
+                  targetAchievement:
+                    type: number
+                    format: float
+                    example: 95.5
+                  dailyBreakdown:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2024-02-20"
+                        totalItems:
+                          type: integer
+                          example: 150
+                        binningCount:
+                          type: integer
+                          example: 90
+                        pickingCount:
+                          type: integer
+                          example: 60
+                        isPresent:
+                          type: boolean
+                          example: true
+        '400':
+          description: Bad request - startDate and endDate are required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No performance data found for this operator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/performance-metrics/team:
+    get:
+      summary: Get team performance metrics
+      tags: [Performance Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date for metrics
+        - in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date for metrics
+        - in: query
+          name: groupBy
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+          description: Group metrics by time period
+      responses:
+        '200':
+          description: Team performance metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    period:
+                      type: string
+                      format: date-time
+                      example: "2024-02-20T00:00:00Z"
+                    totalItems:
+                      type: integer
+                      example: 1500
+                    averageItemsPerOperator:
+                      type: number
+                      format: float
+                      example: 150.5
+                    binningPercentage:
+                      type: number
+                      format: float
+                      example: 60.5
+                    pickingPercentage:
+                      type: number
+                      format: float
+                      example: 39.5
+                    attendanceRate:
+                      type: number
+                      format: float
+                      example: 90.9
+                    activeOperators:
+                      type: integer
+                      example: 10
+                    targetAchievement:
+                      type: number
+                      format: float
+                      example: 95.5
+                    operatorPerformance:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          userId:
+                            type: integer
+                            example: 1
+                          username:
+                            type: string
+                            example: johndoe
+                          fullName:
+                            type: string
+                            example: John Doe
+                          totalItems:
+                            type: integer
+                            example: 150
+                          averageItemsPerDay:
+                            type: number
+                            format: float
+                            example: 15.5
+                          attendanceRate:
+                            type: number
+                            format: float
+                            example: 90.9
+        '400':
+          description: Bad request - startDate and endDate are required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/reports:
+    post:
+      summary: Request a performance report
+      tags: [Performance Metrics]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - startDate
+                - endDate
+                - reportType
+                - exportFormat
+              properties:
+                startDate:
+                  type: string
+                  format: date
+                  example: "2024-02-01"
+                endDate:
+                  type: string
+                  format: date
+                  example: "2024-02-20"
+                reportType:
+                  type: string
+                  enum: [daily, weekly, monthly]
+                  example: weekly
+                exportFormat:
+                  type: string
+                  enum: [excel, pdf]
+                  example: excel
+                emailTo:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        '201':
+          description: Report request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  userId:
+                    type: integer
+                    example: 1
+                  startDate:
+                    type: string
+                    format: date
+                    example: "2024-02-01"
+                  endDate:
+                    type: string
+                    format: date
+                    example: "2024-02-20"
+                  reportType:
+                    type: string
+                    example: weekly
+                  exportFormat:
+                    type: string
+                    example: excel
+                  emailTo:
+                    type: string
+                    format: email
+                    example: user@example.com
+                  status:
+                    type: string
+                    example: pending
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: "2024-02-20T10:00:00Z"
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/reports/{reportId}:
+    get:
+      summary: Get report request status
+      tags: [Performance Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema:
+            type: integer
+          description: Report request ID
+      responses:
+        '200':
+          description: Report request status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  userId:
+                    type: integer
+                    example: 1
+                  startDate:
+                    type: string
+                    format: date
+                    example: "2024-02-01"
+                  endDate:
+                    type: string
+                    format: date
+                    example: "2024-02-20"
+                  reportType:
+                    type: string
+                    example: weekly
+                  exportFormat:
+                    type: string
+                    example: excel
+                  emailTo:
+                    type: string
+                    format: email
+                    example: user@example.com
+                  status:
+                    type: string
+                    example: completed
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: "2024-02-20T10:00:00Z"
+                  completedAt:
+                    type: string
+                    format: date-time
+                    example: "2024-02-20T10:05:00Z"
+                  downloadUrl:
+                    type: string
+                    example: "https://example.com/reports/report-1.pdf"
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: johndoe
+                      email:
+                        type: string
+                        format: email
+                        example: user@example.com
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report request not found
           content:
             application/json:
               schema:

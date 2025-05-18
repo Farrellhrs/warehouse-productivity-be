@@ -3,38 +3,55 @@ import { AppError } from '../../middlewares/error.middleware';
 
 const prisma = new PrismaClient();
 
-// TODO: Implement createActivityLog function
-// - Accept userId, dataType, status, changeHistory
-// - Check if user exists
-// - Create activity log in database
-// - Return created activity log
+interface GetActivityLogsParams {
+  page: number;
+  limit: number;
+  startDate?: Date;
+  endDate?: Date;
+  dataType?: 'binning' | 'picking' | 'attendance' | 'daily_log';
+  status?: 'success' | 'failure';
+  userId?: number;
+}
 
-// TODO: Implement getActivityLogs function
-// - Accept pagination params (page, limit)
-// - Accept filter params (startDate, endDate, userId, dataType, status)
-// - Query activity logs with user details
-// - Return paginated results with total count
+export const getActivityLogs = async (params: GetActivityLogsParams) => {
+  const { page, limit, startDate, endDate, dataType, status, userId } = params;
 
-// TODO: Implement getActivityLogById function
-// - Accept log ID
-// - Query activity log with user details
-// - Throw AppError if not found
-// - Return activity log
+  const where = {
+    ...(startDate && endDate && {
+      activityTime: {
+        gte: startDate,
+        lte: endDate,
+      },
+    }),
+    ...(dataType && { dataType }),
+    ...(status && { status }),
+    ...(userId && { userId }),
+  };
 
-// TODO: Implement getUserActivityLogs function
-// - Accept userId and pagination params
-// - Accept filter params (date range, type, status)
-// - Query user's activity logs
-// - Return paginated results with total count
+  const [total, logs] = await Promise.all([
+    prisma.activityLog.count({ where }),
+    prisma.activityLog.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+          },
+        },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { activityTime: 'desc' },
+    }),
+  ]);
 
-// TODO: Implement getActivityStats function
-// - Accept date range params
-// - Calculate total activities by type
-// - Calculate success/failure rates by type
-// - Calculate average activities per day
-// - Return statistics object with:
-//   - Total activities by type
-//   - Success/failure rates
-//   - Daily averages
-//   - Most active users
-//   - Most common activity types 
+  return {
+    logs,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}; 
